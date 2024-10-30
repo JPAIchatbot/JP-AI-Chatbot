@@ -5,42 +5,40 @@ import pdfParse from 'pdf-parse';
 import fs from 'fs';
 import axios from 'axios';
 import * as cheerio from 'cheerio'; // Correct Cheerio import
-import xml2js from 'xml2js'; // Optional XML parsing library
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000; // Use dynamic port for Render
 
-app.use(cors());
-app.use(express.json());
-
-// OpenAI API configuration
+// OpenAI API setup using environment variables
 const openai = new OpenAI({
-  apiKey: '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',
+  apiKey: process.env.OPENAI_API_KEY, // API key from .env
 });
+
+// In-memory cache for scraped website content
+let websiteCache = {};
 
 // Store conversation history in memory
 let conversationHistory = [
   { role: "system", content: "You are a helpful assistant for JP Rifles. Refer to JP Rifles as 'we' or 'us' in all responses." }
 ];
 
-let websiteCache = {}; // Cache for website content
-
-// **Manually Define Key URLs to Scrape**
+// URLs to be scraped
 const predefinedUrls = [
   'https://jprifles.com',
   'https://jprifles.com/2.1.php',
   'https://jprifles.com/1.4.7.2_os.php',
   'https://jprifles.com/1.4.6_gs.php',
-  // Add more URLs as needed
 ];
 
-// **Function to Scrape Individual Webpages**
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// **Function to Scrape Website Content**
 async function scrapeWebsite(url) {
   try {
     const { data } = await axios.get(url);
     const $ = cheerio.load(data);
-
-    // Extract relevant text from the webpage
     let content = $('body').text().replace(/\s+/g, ' ').trim();
     return content;
   } catch (error) {
@@ -49,7 +47,7 @@ async function scrapeWebsite(url) {
   }
 }
 
-// **Cache Website Content from Key URLs**
+// **Cache Website Content from Predefined URLs**
 async function cacheWebsiteContent() {
   for (const url of predefinedUrls) {
     const content = await scrapeWebsite(url);
@@ -58,11 +56,11 @@ async function cacheWebsiteContent() {
   console.log("Website content cached.");
 }
 
-// Cache content initially and refresh every 24 hours
+// Refresh the cache every 24 hours
 cacheWebsiteContent();
-setInterval(cacheWebsiteContent, 24 * 60 * 60 * 1000); // Refresh every 24 hours
+setInterval(cacheWebsiteContent, 24 * 60 * 60 * 1000); // 24 hours
 
-// **Function to Search Cached Website Data**
+// **Search Cached Website Content**
 function searchWebsiteCache(query) {
   for (const [url, content] of Object.entries(websiteCache)) {
     if (content.toLowerCase().includes(query.toLowerCase())) {
@@ -91,11 +89,9 @@ app.post('/chat', async (req, res) => {
       botResponse = completion.choices[0].message.content.trim();
     }
 
-    // Adjust response to refer to JP Rifles as 'we' or 'us'
-    botResponse = adjustResponse(botResponse);
+    botResponse = adjustResponse(botResponse); // Adjust responses for JP Rifles
 
     conversationHistory.push({ role: "assistant", content: botResponse });
-
     res.json(botResponse);
   } catch (error) {
     console.error("Error:", error);
@@ -103,27 +99,17 @@ app.post('/chat', async (req, res) => {
   }
 });
 
+// **Adjust AI Responses to Use 'We' and 'Us'**
 function adjustResponse(text) {
-  // Replace "JP Rifles" or "JP Enterprises" with "we", but only in appropriate contexts
   text = text.replace(/\b(JP Rifles|JP Enterprises)\b(?!\s+(is|are))/gi, "we");
-
-  // Handle cases where "JP Rifles is" or "JP Enterprises are" need replacement
   text = text.replace(/\b(JP Rifles|JP Enterprises)\s+is\b/gi, "We are");
   text = text.replace(/\b(JP Rifles|JP Enterprises)\s+are\b/gi, "We are");
-
-  // Replace plural pronouns like "their" with "our" and "them" with "us"
   text = text.replace(/\btheir\b/gi, "our").replace(/\btheirs\b/gi, "ours");
   text = text.replace(/\bthem\b/gi, "us");
-
-  // Replace "they are" and "they're" with "we are" and "we're"
   text = text.replace(/\bthey are\b/gi, "we are").replace(/\bthey're\b/gi, "we're");
 
-  // Ensure proper capitalization at the start of sentences or after periods
-  text = text.replace(/(^|\.\s+)(we|our)/gi, (match) => match.toUpperCase());
-
-  return text;
+  return text.replace(/(^|\.\s+)(we|our)/gi, (match) => match.toUpperCase());
 }
-
 
 // **Clear Conversation History Endpoint**
 app.post('/clear', (req, res) => {
