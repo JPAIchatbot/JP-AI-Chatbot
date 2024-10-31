@@ -1,7 +1,6 @@
 import express from 'express';
 import cors from 'cors';
 import { OpenAI } from 'openai';
-import pdfParse from 'pdf-parse';
 import fs from 'fs';
 import axios from 'axios';
 import * as cheerio from 'cheerio'; // Correct Cheerio import
