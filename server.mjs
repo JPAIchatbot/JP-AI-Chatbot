@@ -28,7 +28,7 @@ const db = mysql.createPool({
 // In-memory cache for scraped website content
 let websiteCache = {};
 let conversationHistory = [
-  { role: "system", content: "You are a helpful assistant for JP Rifles. Refer to JP Rifles as 'we' or 'us' in all responses. Your goal is to help the user get the correct information as fast as possible without saying a lot. Keep things simple." }
+  { role: "system", content: "You are a helpful assistant for JP Rifles. Refer to JP Rifles as 'we' or 'us' in all responses." }
 ];
 
 // URLs to be scraped
@@ -39,14 +39,14 @@ const predefinedUrls = [
   'https://jprifles.com/1.4.6_gs.php',
 ];
 
-// **Function to Retrieve Active Products from the Database**
+// **Enhanced Error Logging in Active Products Retrieval**
 async function getActiveProducts() {
   try {
     const [rows] = await db.query('SELECT name, description FROM products WHERE is_active = 1');
     return rows.map(product => `${product.name}: ${product.description}`).join("\n");
   } catch (error) {
     console.error("Database query error:", error);
-    return "Sorry, I couldn't retrieve the product information.";
+    return "We encountered an issue retrieving active product information. Please try again later, or reach out to support for assistance.";
   }
 }
 
