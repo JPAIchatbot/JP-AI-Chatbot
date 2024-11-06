@@ -4,7 +4,7 @@ import { OpenAI } from 'openai';
 import fs from 'fs';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
-import mysql from 'mysql2/promise'; // Import MySQL library for SQL access
+import mysql from 'mysql2/promise';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -27,8 +27,6 @@ const db = mysql.createPool({
 
 // In-memory cache for scraped website content
 let websiteCache = {};
-
-// Store conversation history in memory
 let conversationHistory = [
   { role: "system", content: "You are a helpful assistant for JP Rifles. Refer to JP Rifles as 'we' or 'us' in all responses. Your goal is to help the user get the correct information as fast as possible without saying a lot. Keep things simple." }
 ];
@@ -88,6 +86,49 @@ function searchWebsiteCache(query) {
   return "No relevant information found on the website.";
 }
 
+// **Define SCS Product Recommendation Logic**
+function getSCSRecommendation({ frame, config, suppressed, subsonic, lawFolder, lowMass }) {
+  const products = {
+    "JPSCS2-15": { name: "AR-15 Standard SCS", description: "Standard for AR-15" },
+    "JPSCS2-15H2": { name: "AR-15 H2 SCS", description: "Heavier buffer for AR-15" },
+    "JPSCS2-15-LAW": { name: "AR-15 Standard for Law Tactical Folder", description: "Compatible with Law Tactical Folder" },
+    "JPSCS2-10": { name: "AR-10 Standard SCS", description: "Standard for AR-10" },
+    "JPSCS2-10H2": { name: "AR-10 H2 SCS", description: "Heavier buffer for AR-10" },
+    "JPSCS2-10-LAW": { name: "AR-10 Standard for Law Tactical Folder", description: "Compatible with Law Tactical Folder" }
+  };
+
+  if (frame === "AR-15") {
+    if (lawFolder) return products["JPSCS2-15-LAW"];
+    if (config && suppressed && subsonic) return products["JPSCS2-15"];
+    if (config && suppressed) return products["JPSCS2-15H2"];
+    return products["JPSCS2-15"];
+  } else if (frame === "AR-10") {
+    if (lawFolder) return products["JPSCS2-10-LAW"];
+    if (config && suppressed && lowMass) return products["JPSCS2-10H2"];
+    if (config && suppressed) return products["JPSCS2-10"];
+    return products["JPSCS2-10"];
+  }
+  return { name: "No specific recommendation", description: "Please consult additional details" };
+}
+
+// **Gather Information for Product Recommendation**
+async function gatherInfoAndRecommend(message) {
+  const questions = [];
+  if (!message.frame) questions.push("What is the frame size (AR-15 or AR-10)?");
+  if (!message.config) questions.push("Are you using any special configurations?");
+  if (!message.suppressed) questions.push("Will you be using a suppressor?");
+  if (!message.subsonic) questions.push("Do you need to use subsonic ammunition?");
+  if (!message.lawFolder) questions.push("Will you be using a Law Tactical Folder?");
+  if (!message.lowMass) questions.push("Are you using a low mass setup?");
+
+  if (questions.length > 0) {
+    return questions.join(" ");
+  }
+
+  const recommendation = getSCSRecommendation(message);
+  return `Based on your setup, we recommend the ${recommendation.name}: ${recommendation.description}`;
+}
+
 // **Chat Endpoint**
 app.post('/chat', async (req, res) => {
   const { message } = req.body;
@@ -95,7 +136,6 @@ app.post('/chat', async (req, res) => {
   conversationHistory.push({ role: "user", content: message });
 
   try {
-    // Check if the message is a request for product recommendations
     if (message.toLowerCase().includes("recommend") || message.toLowerCase().includes("product")) {
       const activeProducts = await getActiveProducts();
       let productResponse = activeProducts ? `Here are our active products:\n${activeProducts}` : "No active products found.";
@@ -104,9 +144,7 @@ app.post('/chat', async (req, res) => {
       return;
     }
 
-    // Otherwise, search cached website content
     let botResponse = searchWebsiteCache(message);
-
     if (botResponse.includes("No relevant information")) {
       const completion = await openai.chat.completions.create({
         model: "gpt-4",
@@ -117,8 +155,7 @@ app.post('/chat', async (req, res) => {
       botResponse = completion.choices[0].message.content.trim();
     }
 
-    botResponse = adjustResponse(botResponse); // Adjust responses for JP Rifles
-
+    botResponse = adjustResponse(botResponse);
     conversationHistory.push({ role: "assistant", content: botResponse });
     res.json(botResponse);
   } catch (error) {
