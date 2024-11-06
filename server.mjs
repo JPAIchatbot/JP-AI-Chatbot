@@ -151,7 +151,7 @@ app.post('/chat', async (req, res) => {
       // If no relevant information found in the cache, call the OpenAI API
       try {
         const completion = await openai.chat.completions.create({
-          model: "gpt-4",  // Ensure this matches exactly
+          model: "ft:gpt-4o-2024-08-06:jp-enterprises:training:AQhPhQS2",  // Ensure this matches exactly
           messages: conversationHistory,
           max_tokens: 512,
         });
