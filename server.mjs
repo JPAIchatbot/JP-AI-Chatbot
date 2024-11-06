@@ -144,27 +144,38 @@ app.post('/chat', async (req, res) => {
       return;
     }
 
+    // Search cached website content first
+    let botResponse = searchWebsiteCache(message);
 
-let botResponse = searchWebsiteCache(message);
-if (botResponse.includes("No relevant information")) {
-  try {
-    const completion = await openai.chat.completions.create({
-      model: "ft:gpt-4o-2024-08-06:jp-enterprises:training:AQhPhQS2",  // Ensure this matches exactly
-      messages: conversationHistory,
-      max_tokens: 512,
-    });
+    if (botResponse.includes("No relevant information")) {
+      // If no relevant information found in the cache, call the OpenAI API
+      try {
+        const completion = await openai.chat.completions.create({
+          model: "ft:gpt-4o-2024-08-06:jp-enterprises:training:AQhPhQS2",  // Ensure this matches exactly
+          messages: conversationHistory,
+          max_tokens: 512,
+        });
 
-    botResponse = completion.choices[0].message.content.trim();
-    conversationHistory.push({ role: "assistant", content: botResponse });
-    res.json(botResponse);
+        botResponse = completion.choices[0].message.content.trim();
+        conversationHistory.push({ role: "assistant", content: botResponse });
+        res.json(botResponse);
+
+      } catch (error) {
+        console.error("OpenAI API error:", error);
+        res.status(500).send("Something went wrong with the AI response.");
+      }
+    } else {
+      // If relevant information found in the cache
+      conversationHistory.push({ role: "assistant", content: botResponse });
+      res.json(botResponse);
+    }
 
   } catch (error) {
-    console.error("OpenAI API error:", error);
-    res.status(500).send("Something went wrong with the AI response.");
+    console.error("Unexpected error:", error);
+    res.status(500).send("An unexpected error occurred.");
   }
-}
-
 });
+
 
 // **Adjust AI Responses to Use 'We' and 'Us'**
 function adjustResponse(text) {
