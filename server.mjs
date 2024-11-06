@@ -147,10 +147,14 @@ app.post('/chat', async (req, res) => {
     let botResponse = searchWebsiteCache(message);
     if (botResponse.includes("No relevant information")) {
       const completion = await openai.chat.completions.create({
-        model: "gpt-4",
+        model: "gpt-4o-2024-08-06:training",
         messages: conversationHistory,
         max_tokens: 512,
       });
+
+
+
+
 
       botResponse = completion.choices[0].message.content.trim();
     }
