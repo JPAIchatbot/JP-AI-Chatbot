@@ -147,7 +147,7 @@ app.post('/chat', async (req, res) => {
     let botResponse = searchWebsiteCache(message);
     if (botResponse.includes("No relevant information")) {
       const completion = await openai.chat.completions.create({
-        model: "gpt-4o-2024-08-06:training",
+        model: "ft:gpt-4o-2024-08-06:jp-enterprises:training:AQhPhQS2",
         messages: conversationHistory,
         max_tokens: 512,
       });
