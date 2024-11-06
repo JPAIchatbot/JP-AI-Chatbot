@@ -28,7 +28,7 @@ const db = mysql.createPool({
 // In-memory cache for scraped website content
 let websiteCache = {};
 let conversationHistory = [
-  { role: "system", content: "You are a helpful assistant for JP Rifles. Refer to JP Rifles as 'we' or 'us' in all responses." }
+  { role: "system", content: "You are a helpful assistant for JP Rifles. Refer to JP Rifles as 'we' or 'us' in all responses. Before giving an answer please ask me questions so that i feel that you are paying attention to my needs, and giving me the proper product recommendation and advice." }
 ];
 
 // URLs to be scraped
