@@ -28,7 +28,7 @@ const db = mysql.createPool({
 // In-memory cache for scraped website content
 let websiteCache = {};
 let conversationHistory = [
-  { role: "system", content: "You are a helpful assistant for JP Rifles. Refer to JP Rifles as 'we' or 'us' in all responses. Before giving an answer please ask me questions so that i feel that you are paying attention to my needs, and giving me the proper product recommendation and advice." }
+  { role: "system", content: "You are a helpful assistant for JP Rifles. Refer to JP Rifles as 'we' or 'us' in all responses. Before giving an answer, ask questions to ensure you understand the customer's needs, so you can give proper product recommendations and advice." }
 ];
 
 // URLs to be scraped
@@ -39,14 +39,14 @@ const predefinedUrls = [
   'https://jprifles.com/1.4.6_gs.php',
 ];
 
-// **Enhanced Error Logging in Active Products Retrieval**
-async function getActiveProducts() {
+// **Function to Retrieve All Products from the Database**
+async function getAllProducts() {
   try {
-    const [rows] = await db.query('SELECT name, description FROM products WHERE is_active = 1');
+    const [rows] = await db.query('SELECT name, description FROM products');
     return rows.map(product => `${product.name}: ${product.description}`).join("\n");
   } catch (error) {
     console.error("Database query error:", error);
-    return "We encountered an issue retrieving active product information. Please try again later, or reach out to support for assistance.";
+    return "We encountered an issue retrieving product information. Please try again later, or reach out to support for assistance.";
   }
 }
 
@@ -137,8 +137,8 @@ app.post('/chat', async (req, res) => {
 
   try {
     if (message.toLowerCase().includes("recommend") || message.toLowerCase().includes("product")) {
-      const activeProducts = await getActiveProducts();
-      let productResponse = activeProducts ? `Here are our active products:\n${activeProducts}` : "No active products found.";
+      const allProducts = await getAllProducts();
+      let productResponse = allProducts ? `Here are our products:\n${allProducts}` : "No products found.";
       conversationHistory.push({ role: "assistant", content: productResponse });
       res.json(productResponse);
       return;
