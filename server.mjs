@@ -3,14 +3,26 @@ import cors from 'cors';
 import { OpenAI } from 'openai';
 import fs from 'fs';
 import axios from 'axios';
-import * as cheerio from 'cheerio'; // Correct Cheerio import
+import * as cheerio from 'cheerio';
+import mysql from 'mysql2/promise'; // Import MySQL library for SQL access
 
 const app = express();
-const PORT = process.env.PORT || 3000; // Use dynamic port for Render
+const PORT = process.env.PORT || 3000;
+
+app.use(cors());
+app.use(express.json());
 
 // OpenAI API setup using environment variables
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY, // API key from .env
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+// SQL Database connection setup
+const db = mysql.createPool({
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
 });
 
 // In-memory cache for scraped website content
@@ -18,7 +30,7 @@ let websiteCache = {};
 
 // Store conversation history in memory
 let conversationHistory = [
-  { role: "system", content: "You are a helpful assistant for JP Rifles. Refer to JP Rifles as 'we' or 'us' in all responses." }
+  { role: "system", content: "You are a helpful assistant for JP Rifles. Refer to JP Rifles as 'we' or 'us' in all responses. Your goal is to help the user get the correct information as fast as possible without saying a lot. Keep things simple." }
 ];
 
 // URLs to be scraped
@@ -29,9 +41,16 @@ const predefinedUrls = [
   'https://jprifles.com/1.4.6_gs.php',
 ];
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+// **Function to Retrieve Active Products from the Database**
+async function getActiveProducts() {
+  try {
+    const [rows] = await db.query('SELECT name, description FROM products WHERE is_active = 1');
+    return rows.map(product => `${product.name}: ${product.description}`).join("\n");
+  } catch (error) {
+    console.error("Database query error:", error);
+    return "Sorry, I couldn't retrieve the product information.";
+  }
+}
 
 // **Function to Scrape Website Content**
 async function scrapeWebsite(url) {
@@ -57,7 +76,7 @@ async function cacheWebsiteContent() {
 
 // Refresh the cache every 24 hours
 cacheWebsiteContent();
-setInterval(cacheWebsiteContent, 24 * 60 * 60 * 1000); // 24 hours
+setInterval(cacheWebsiteContent, 24 * 60 * 60 * 1000);
 
 // **Search Cached Website Content**
 function searchWebsiteCache(query) {
@@ -76,6 +95,16 @@ app.post('/chat', async (req, res) => {
   conversationHistory.push({ role: "user", content: message });
 
   try {
+    // Check if the message is a request for product recommendations
+    if (message.toLowerCase().includes("recommend") || message.toLowerCase().includes("product")) {
+      const activeProducts = await getActiveProducts();
+      let productResponse = activeProducts ? `Here are our active products:\n${activeProducts}` : "No active products found.";
+      conversationHistory.push({ role: "assistant", content: productResponse });
+      res.json(productResponse);
+      return;
+    }
+
+    // Otherwise, search cached website content
     let botResponse = searchWebsiteCache(message);
 
     if (botResponse.includes("No relevant information")) {
