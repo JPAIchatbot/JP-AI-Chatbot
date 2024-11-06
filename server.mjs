@@ -144,14 +144,25 @@ app.post('/chat', async (req, res) => {
       return;
     }
 
-    let botResponse = searchWebsiteCache(message);
-    if (botResponse.includes("No relevant information")) {
-      const completion = await openai.chat.completions.create({
-        model: "ft:gpt-4o-2024-08-06:jp-enterprises:training:AQhPhQS2",
-        messages: conversationHistory,
-        max_tokens: 512,
-      });
 
+let botResponse = searchWebsiteCache(message);
+if (botResponse.includes("No relevant information")) {
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "ft:gpt-4o-2024-08-06:jp-enterprises:training:AQhPhQS2",  // Ensure this matches exactly
+      messages: conversationHistory,
+      max_tokens: 512,
+    });
+
+    botResponse = completion.choices[0].message.content.trim();
+    conversationHistory.push({ role: "assistant", content: botResponse });
+    res.json(botResponse);
+
+  } catch (error) {
+    console.error("OpenAI API error:", error);
+    res.status(500).send("Something went wrong with the AI response.");
+  }
+}
 
 
 
