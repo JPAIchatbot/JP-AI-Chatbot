@@ -151,12 +151,13 @@ app.post('/chat', async (req, res) => {
       // If no relevant information found in the cache, call the OpenAI API
       try {
         const completion = await openai.chat.completions.create({
-          model: "ft:gpt-4o-2024-08-06:jp-enterprises:training:AQhPhQS2",  // Ensure this matches exactly
+          model: "ft:gpt-4o-2024-08-06:jp-enterprises:training:AQhPhQS2",
           messages: conversationHistory,
           max_tokens: 256,
         });
 
         botResponse = completion.choices[0].message.content.trim();
+        botResponse = cleanFormatting(botResponse); // Clean formatting symbols
         conversationHistory.push({ role: "assistant", content: botResponse });
         res.json(botResponse);
 
@@ -166,6 +167,7 @@ app.post('/chat', async (req, res) => {
       }
     } else {
       // If relevant information found in the cache
+      botResponse = cleanFormatting(botResponse); // Clean formatting symbols
       conversationHistory.push({ role: "assistant", content: botResponse });
       res.json(botResponse);
     }
@@ -175,6 +177,12 @@ app.post('/chat', async (req, res) => {
     res.status(500).send("An unexpected error occurred.");
   }
 });
+
+
+function cleanFormatting(text) {
+  return text.replace(/\*\*|##/g, "");  // Removes ** and ## symbols
+}
+
 
 
 // **Adjust AI Responses to Use 'We' and 'Us'**
@@ -192,7 +200,7 @@ function adjustResponse(text) {
 // **Clear Conversation History Endpoint**
 app.post('/clear', (req, res) => {
   conversationHistory = [
-    { role: "system", content: "You are a helpful assistant for JP Rifles. Refer to JP Rifles as 'we' or 'us' in all responses." }
+    { role: "system", content: "You are a helpful assistant for JP Rifles. Write as if you are JP Rifles." }
   ];
   res.send("Conversation history cleared.");
 });
