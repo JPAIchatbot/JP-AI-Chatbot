@@ -153,7 +153,7 @@ app.post('/chat', async (req, res) => {
         const completion = await openai.chat.completions.create({
           model: "ft:gpt-4o-2024-08-06:jp-enterprises:training:AQhPhQS2",  // Ensure this matches exactly
           messages: conversationHistory,
-          max_tokens: 512,
+          max_tokens: 256,
         });
 
         botResponse = completion.choices[0].message.content.trim();
