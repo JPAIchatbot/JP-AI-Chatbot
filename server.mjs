@@ -151,7 +151,7 @@ app.post('/chat', async (req, res) => {
       // If no relevant information found in the cache, call the OpenAI API
       try {
         const completion = await openai.chat.completions.create({
-          model: "ft:gpt-4o-2024-08-06:jp-enterprises:fine-tuning-v3:ARN6HUzA",
+          model: "ft:gpt-4o-2024-08-06:jp-enterprises:fine-tuning-v4:ARNRC7n1",
           messages: conversationHistory,
           max_tokens: 256,
         });
