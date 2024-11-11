@@ -42,41 +42,6 @@ async function getAllProducts() {
   }
 }
 
-// **Function to Scrape Website Content**
-async function scrapeWebsite(url) {
-  try {
-    const { data } = await axios.get(url);
-    const $ = cheerio.load(data);
-    let content = $('body').text().replace(/\s+/g, ' ').trim();
-    return content;
-  } catch (error) {
-    console.error(`Error scraping ${url}:`, error);
-    return `Could not retrieve information from ${url}.`;
-  }
-}
-
-// **Cache Website Content from Predefined URLs**
-async function cacheWebsiteContent() {
-  for (const url of predefinedUrls) {
-    const content = await scrapeWebsite(url);
-    websiteCache[url] = content;
-  }
-  console.log("Website content cached.");
-}
-
-// Refresh the cache every 24 hours
-cacheWebsiteContent();
-setInterval(cacheWebsiteContent, 24 * 60 * 60 * 1000);
-
-// **Search Cached Website Content**
-function searchWebsiteCache(query) {
-  for (const [url, content] of Object.entries(websiteCache)) {
-    if (content.toLowerCase().includes(query.toLowerCase())) {
-      return `Found relevant information on ${url}:\n${content.substring(0, 300)}...`;
-    }
-  }
-  return "No relevant information found on the website.";
-}
 
 // **Define SCS Product Recommendation Logic**
 function getSCSRecommendation({ frame, config, suppressed, subsonic, lawFolder, lowMass }) {
