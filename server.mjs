@@ -1,9 +1,6 @@
 import express from 'express';
 import cors from 'cors';
 import { OpenAI } from 'openai';
-import fs from 'fs';
-import axios from 'axios';
-import * as cheerio from 'cheerio';
 import mysql from 'mysql2/promise';
 
 const app = express();
@@ -25,8 +22,7 @@ const db = mysql.createPool({
   database: process.env.DB_NAME,
 });
 
-// In-memory cache for scraped website content
-let websiteCache = {};
+// Store conversation history in memory
 let conversationHistory = [
   { role: "system", content: "You are a helpful assistant for JP Rifles. Write as if you are JP Rifles. Before giving an answer, ask questions to ensure you understand the customer's needs, so you can give proper product recommendations and advice." }
 ];
@@ -41,7 +37,6 @@ async function getAllProducts() {
     return "We encountered an issue retrieving product information. Please try again later, or reach out to support for assistance.";
   }
 }
-
 
 // **Define SCS Product Recommendation Logic**
 function getSCSRecommendation({ frame, config, suppressed, subsonic, lawFolder, lowMass }) {
@@ -101,33 +96,17 @@ app.post('/chat', async (req, res) => {
       return;
     }
 
-    // Search cached website content first
-    let botResponse = searchWebsiteCache(message);
+    // Call the OpenAI API for response generation
+    const completion = await openai.chat.completions.create({
+      model: "ft:gpt-4o-2024-08-06:jp-enterprises:fine-tuning-v6:AROCyAnV",
+      messages: conversationHistory,
+      max_tokens: 256,
+    });
 
-    if (botResponse.includes("No relevant information")) {
-      // If no relevant information found in the cache, call the OpenAI API
-      try {
-        const completion = await openai.chat.completions.create({
-          model: "ft:gpt-4o-2024-08-06:jp-enterprises:fine-tuning-v6:AROCyAnV",
-          messages: conversationHistory,
-          max_tokens: 256,
-        });
-
-        botResponse = completion.choices[0].message.content.trim();
-        botResponse = cleanFormatting(botResponse); // Clean formatting symbols
-        conversationHistory.push({ role: "assistant", content: botResponse });
-        res.json(botResponse);
-
-      } catch (error) {
-        console.error("OpenAI API error:", error);
-        res.status(500).send("Something went wrong with the AI response.");
-      }
-    } else {
-      // If relevant information found in the cache
-      botResponse = cleanFormatting(botResponse); // Clean formatting symbols
-      conversationHistory.push({ role: "assistant", content: botResponse });
-      res.json(botResponse);
-    }
+    let botResponse = completion.choices[0].message.content.trim();
+    botResponse = cleanFormatting(botResponse); // Clean formatting symbols
+    conversationHistory.push({ role: "assistant", content: botResponse });
+    res.json(botResponse);
 
   } catch (error) {
     console.error("Unexpected error:", error);
@@ -135,12 +114,9 @@ app.post('/chat', async (req, res) => {
   }
 });
 
-
 function cleanFormatting(text) {
   return text.replace(/\*\*|##/g, "");  // Removes ** and ## symbols
 }
-
-
 
 // **Adjust AI Responses to Use 'We' and 'Us'**
 function adjustResponse(text) {
