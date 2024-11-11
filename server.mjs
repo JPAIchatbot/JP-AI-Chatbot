@@ -31,14 +31,6 @@ let conversationHistory = [
   { role: "system", content: "You are a helpful assistant for JP Rifles. Write as if you are JP Rifles. Before giving an answer, ask questions to ensure you understand the customer's needs, so you can give proper product recommendations and advice." }
 ];
 
-// URLs to be scraped
-const predefinedUrls = [
-  'https://jprifles.com',
-  'https://jprifles.com/2.1.php',
-  'https://jprifles.com/1.4.7.2_os.php',
-  'https://jprifles.com/1.4.6_gs.php',
-];
-
 // **Function to Retrieve All Products from the Database**
 async function getAllProducts() {
   try {
