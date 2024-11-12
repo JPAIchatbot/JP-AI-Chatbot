@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { OpenAI } from 'openai';
 import mysql from 'mysql2/promise';
+import fs from 'fs';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -81,6 +82,20 @@ async function gatherInfoAndRecommend(message) {
   return `Based on your setup, we recommend the ${recommendation.name}: ${recommendation.description}`;
 }
 
+// **Function to Log Chat Interactions**
+function logChatInteraction(question, answer) {
+  const logEntry = {
+    messages: [
+      { role: "user", content: question },
+      { role: "assistant", content: answer }
+    ]
+  };
+
+  fs.appendFile("chat_log.jsonl", JSON.stringify(logEntry) + "\n", (err) => {
+    if (err) console.error("Error logging chat interaction:", err);
+  });
+}
+
 // **Chat Endpoint**
 app.post('/chat', async (req, res) => {
   const { message } = req.body;
@@ -92,6 +107,10 @@ app.post('/chat', async (req, res) => {
       const allProducts = await getAllProducts();
       let productResponse = allProducts ? `Here are our products:\n${allProducts}` : "No products found.";
       conversationHistory.push({ role: "assistant", content: productResponse });
+      
+      // Log the interaction
+      logChatInteraction(message, productResponse);
+
       res.json(productResponse);
       return;
     }
@@ -106,6 +125,10 @@ app.post('/chat', async (req, res) => {
     let botResponse = completion.choices[0].message.content.trim();
     botResponse = cleanFormatting(botResponse); // Clean formatting symbols
     conversationHistory.push({ role: "assistant", content: botResponse });
+
+    // Log the interaction
+    logChatInteraction(message, botResponse);
+
     res.json(botResponse);
 
   } catch (error) {
