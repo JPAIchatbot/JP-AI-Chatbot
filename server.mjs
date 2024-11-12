@@ -180,7 +180,7 @@ app.post('/chat', async (req, res) => {
 
     // Call the OpenAI API for response generation
     const completion = await openai.chat.completions.create({
-      model: "ft:gpt-4o-2024-08-06:jp-enterprises:fine-tuning-v7:ASpn1UHr",
+      model: "ft:gpt-4o-2024-08-06:jp-enterprises:product-fine-tuning-v8:ASsmyJys",
       messages: conversationHistory,
       max_tokens: 256,
     });
