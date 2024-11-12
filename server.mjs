@@ -133,6 +133,9 @@ app.post('/chat', async (req, res) => {
 
   } catch (error) {
     console.error("Unexpected error:", error);
+    fs.appendFile("error_log.txt", `Error: ${error}\n`, (err) => {
+      if (err) console.error("Error logging to error_log.txt:", err);
+    });
     res.status(500).send("An unexpected error occurred.");
   }
 });
