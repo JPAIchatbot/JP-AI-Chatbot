@@ -82,17 +82,6 @@ function generateResponse(history) {
   return "This is where the assistant's response would go.";
 }
 
-// Function to Retrieve All Products from the Database
-async function getAllProducts() {
-  try {
-    const [rows] = await db.query('SELECT name, description FROM products');
-    return rows.map(product => `${product.name}: ${product.description}`).join("\n");
-  } catch (error) {
-    console.error("Database query error:", error);
-    return "We encountered an issue retrieving product information. Please try again later, or reach out to support for assistance.";
-  }
-}
-
 // Define SCS Product Recommendation Logic
 function getSCSRecommendation({ frame, config, suppressed, subsonic, lawFolder, lowMass }) {
   const products = {
