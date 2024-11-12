@@ -73,39 +73,30 @@ function initializeConversationHistory() {
 let userConversations = {}; // Example in-memory store
 
 // Function to handle new messages
-function handleMessage(userId, userMessage) {
+async function handleMessage(userId, userMessage) {
   if (!userConversations[userId]) {
     userConversations[userId] = initializeConversationHistory();
   }
   const conversationHistory = userConversations[userId];
   conversationHistory.push({ role: "user", content: userMessage });
-  
-  const response = generateResponse(conversationHistory);
-  conversationHistory.push({ role: "assistant", content: response });
 
-  return response;
-}
-
-// Function to generate a response from the conversation history
-function generateResponse(history) {
-  return "This is where the assistant's response would go.";
-}
-
-// Retrieve products from the database
-async function getAllProducts() {
+  // Generate response with OpenAI
   try {
-    const [rows] = await db.query('SELECT name, description FROM products');
-    return rows.map(product => `${product.name}: ${product.description}`).join("\n");
-  } catch (error) {
-    console.error("Database query error:", error);
-    return "We encountered an issue retrieving product information. Please try again later, or reach out to support for assistance.";
-  }
-}
+    const completion = await openai.chat.completions.create({
+      model: "ft:gpt-4o-2024-08-06:jp-enterprises:fine-tuning-v7:ASpn1UHr",
+      messages: conversationHistory,
+      max_tokens: 256,
+    });
 
-// SCS Product Recommendation Logic
-function getSCSRecommendation({ frame, config, suppressed, subsonic, lawFolder, lowMass }) {
-  // define products logic here...
-  return { name: "No specific recommendation", description: "Please consult additional details" };
+    const botResponse = cleanFormatting(completion.choices[0].message.content.trim());
+    conversationHistory.push({ role: "assistant", content: botResponse });
+    logChatInteraction(userMessage, botResponse);
+    return botResponse;
+
+  } catch (error) {
+    console.error("OpenAI API error:", error);
+    return "An error occurred while generating a response. Please try again later.";
+  }
 }
 
 // Chat Endpoint with per-user conversation history
@@ -117,40 +108,8 @@ app.post('/chat', async (req, res) => {
     return;
   }
 
-  if (!userConversations[userId]) {
-    userConversations[userId] = initializeConversationHistory();
-  }
-
-  const conversationHistory = userConversations[userId];
-  conversationHistory.push({ role: "user", content: message });
-
-  try {
-    if (message.toLowerCase().includes("recommend") || message.toLowerCase().includes("product")) {
-      const allProducts = await getAllProducts();
-      const productResponse = allProducts ? `Here are our products:\n${allProducts}` : "No products found.";
-      conversationHistory.push({ role: "assistant", content: productResponse });
-      logChatInteraction(message, productResponse);
-      res.json(productResponse);
-      return;
-    }
-
-    const completion = await openai.chat.completions.create({
-      model: "ft:gpt-4o-2024-08-06:jp-enterprises:fine-tuning-v7:ASpn1UHr",
-      messages: conversationHistory,
-      max_tokens: 256,
-    });
-
-    let botResponse = completion.choices[0].message.content.trim();
-    botResponse = cleanFormatting(botResponse);
-    conversationHistory.push({ role: "assistant", content: botResponse });
-
-    logChatInteraction(message, botResponse);
-    res.json(botResponse);
-
-  } catch (error) {
-    console.error("Unexpected error:", error);
-    res.status(500).send("An unexpected error occurred.");
-  }
+  const response = await handleMessage(userId, message);
+  res.json({ response });
 });
 
 // Helper Functions
@@ -165,4 +124,16 @@ function logChatInteraction(question, answer) {
   });
 }
 
+// Retrieve all products from the database (used in recommendations if needed)
+async function getAllProducts() {
+  try {
+    const [rows] = await db.query('SELECT name, description FROM products');
+    return rows.map(product => `${product.name}: ${product.description}`).join("\n");
+  } catch (error) {
+    console.error("Database query error:", error);
+    return "We encountered an issue retrieving product information. Please try again later, or reach out to support for assistance.";
+  }
+}
+
+// Start the Server
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
