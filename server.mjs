@@ -50,21 +50,32 @@ let conversationHistory = [
       Ask questions tailored to the user’s initial request and respond with specificity. Use these guidelines as a foundation for all responses to ensure highly detailed and useful support.
     `
   },
-  {
+];
+
+function displayWelcomeMessage() {
+  const welcomeMessage = {
     role: "assistant",
     content: `
       Welcome to JP Rifles' Support Chatbot! I'm here to help you find the perfect JP Rifles products for your setup, answer questions, and guide you through compatibility and options.
-
-      **How to Ask a Question**:
-      - **Describe Your Setup**: Mention your caliber, rifle model, stock type, and intended use (e.g., suppressed, subsonic).
-      - **Ask About Compatibility**: I can provide specific advice on which JP products work with your configuration.
-      - **Seek Recommendations**: Not sure which product is best? Tell me your needs, and I'll guide you!
+      
+      How to Ask a Question:
+      - Describe Your Setup: Mention your caliber, rifle model, stock type, and intended use (e.g., suppressed, subsonic).
+      - Ask About Compatibility: I can provide specific advice on which JP products work with your configuration.
+      - Seek Recommendations: Not sure which product is best? Tell me your needs, and I'll guide you!
 
       Feel free to ask any question, and I'll do my best to assist you like any JP Rifles expert would!
     `
-  }
-];
+  };
 
+  // Add welcome message to conversation history
+  conversationHistory.push(welcomeMessage);
+
+  // Display the welcome message in your chatbot UI
+  renderMessage(welcomeMessage); // Replace with your UI’s render/display function
+}
+
+// Call the welcome message function when the page loads
+window.onload = displayWelcomeMessage;
 
 // **Function to Retrieve All Products from the Database**
 async function getAllProducts() {
