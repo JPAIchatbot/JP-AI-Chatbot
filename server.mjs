@@ -23,7 +23,6 @@ const db = mysql.createPool({
   database: process.env.DB_NAME,
 });
 
-
 // Initialize conversation history with system prompt and welcome message
 function initializeConversationHistory() {
   return [
@@ -69,7 +68,6 @@ function initializeConversationHistory() {
   ];
 }
 
-
 // When a new session is created, initialize the conversation history
 let conversationHistory = initializeConversationHistory();
 
@@ -93,19 +91,18 @@ function generateResponse(history) {
   return "This is where the assistant's response would go.";
 }
 
-
-// **Function to Retrieve All Products from the Database**
+// Function to Retrieve All Products from the Database
 async function getAllProducts() {
   try {
     const [rows] = await db.query('SELECT name, description FROM products');
-    return rows.map(product => ${product.name}: ${product.description}).join("\n");
+    return rows.map(product => `${product.name}: ${product.description}`).join("\n");
   } catch (error) {
     console.error("Database query error:", error);
     return "We encountered an issue retrieving product information. Please try again later, or reach out to support for assistance.";
   }
 }
 
-// **Define SCS Product Recommendation Logic**
+// Define SCS Product Recommendation Logic
 function getSCSRecommendation({ frame, config, suppressed, subsonic, lawFolder, lowMass }) {
   const products = {
     "JPSCS2-15": { name: "AR-15 Standard SCS", description: "Standard for AR-15" },
@@ -130,7 +127,7 @@ function getSCSRecommendation({ frame, config, suppressed, subsonic, lawFolder, 
   return { name: "No specific recommendation", description: "Please consult additional details" };
 }
 
-// **Gather Information for Product Recommendation**
+// Gather Information for Product Recommendation
 async function gatherInfoAndRecommend(message) {
   const questions = [];
   if (!message.frame) questions.push("What is the frame size (AR-15 or AR-10)?");
@@ -145,10 +142,10 @@ async function gatherInfoAndRecommend(message) {
   }
 
   const recommendation = getSCSRecommendation(message);
-  return Based on your setup, we recommend the ${recommendation.name}: ${recommendation.description};
+  return `Based on your setup, we recommend the ${recommendation.name}: ${recommendation.description}`;
 }
 
-// **Function to Log Chat Interactions**
+// Function to Log Chat Interactions
 function logChatInteraction(question, answer) {
   const logEntry = {
     messages: [
@@ -162,7 +159,7 @@ function logChatInteraction(question, answer) {
   });
 }
 
-// **Chat Endpoint**
+// Chat Endpoint
 app.post('/chat', async (req, res) => {
   const { message } = req.body;
 
@@ -171,7 +168,7 @@ app.post('/chat', async (req, res) => {
   try {
     if (message.toLowerCase().includes("recommend") || message.toLowerCase().includes("product")) {
       const allProducts = await getAllProducts();
-      let productResponse = allProducts ? Here are our products:\n${allProducts} : "No products found.";
+      let productResponse = allProducts ? `Here are our products:\n${allProducts}` : "No products found.";
       conversationHistory.push({ role: "assistant", content: productResponse });
       
       // Log the interaction
@@ -199,7 +196,7 @@ app.post('/chat', async (req, res) => {
 
   } catch (error) {
     console.error("Unexpected error:", error);
-    fs.appendFile("error_log.txt", Error: ${error}\n, (err) => {
+    fs.appendFile("error_log.txt", `Error: ${error}\n`, (err) => {
       if (err) console.error("Error logging to error_log.txt:", err);
     });
     res.status(500).send("An unexpected error occurred.");
@@ -210,7 +207,7 @@ function cleanFormatting(text) {
   return text.replace(/\*\*|##/g, "");  // Removes ** and ## symbols
 }
 
-// **Adjust AI Responses to Use 'We' and 'Us'**
+// Adjust AI Responses to Use 'We' and 'Us'
 function adjustResponse(text) {
   text = text.replace(/\b(JP Rifles|JP Enterprises)\b(?!\s+(is|are))/gi, "we");
   text = text.replace(/\b(JP Rifles|JP Enterprises)\s+is\b/gi, "We are");
@@ -222,7 +219,7 @@ function adjustResponse(text) {
   return text.replace(/(^|\.\s+)(we|our)/gi, (match) => match.toUpperCase());
 }
 
-// **Clear Conversation History Endpoint**
+// Clear Conversation History Endpoint
 app.post('/clear', (req, res) => {
   conversationHistory = [
     { role: "system", content: "You are a helpful assistant for JP Rifles. Write as if you are JP Rifles." }
@@ -230,5 +227,5 @@ app.post('/clear', (req, res) => {
   res.send("Conversation history cleared.");
 });
 
-// **Start the Server**
-app.listen(PORT, () => console.log(Server running on http://localhost:${PORT}));
+// Start the Server
+app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
