@@ -1,7 +1,6 @@
 import express from 'express';
 import cors from 'cors';
 import { OpenAI } from 'openai';
-import mysql from 'mysql2/promise';
 import fs from 'fs';
 
 const app = express();
@@ -13,14 +12,6 @@ app.use(express.json());
 // OpenAI API setup using environment variables
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
-});
-
-// SQL Database connection setup
-const db = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
 });
 
 // Initialize conversation history with system prompt and welcome message
