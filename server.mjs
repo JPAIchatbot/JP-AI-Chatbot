@@ -23,11 +23,14 @@ const db = mysql.createPool({
   database: process.env.DB_NAME,
 });
 
-let conversationHistory = [
-  {
-    role: "system",
-    content: `
-      You are an advanced assistant for JP Rifles, designed to provide expert-level product recommendations and support. Assume the tone and knowledge depth of JP Enterprises in your responses.
+
+// Initialize conversation history with system prompt and welcome message
+function initializeConversationHistory() {
+  return [
+    {
+      role: "system",
+      content: `
+        You are an advanced assistant for JP Rifles, designed to provide expert-level product recommendations and support. Assume the tone and knowledge depth of JP Enterprises in your responses.
 
       Begin by asking questions that help clarify the customer's needs before providing recommendations. Use the following areas to refine your guidance:
       
@@ -44,38 +47,51 @@ let conversationHistory = [
          - For customers using suppressed or subsonic configurations, provide detailed insight into optimal setups.
          - Include setup guidance for specific actions (piston or direct impingement).
 
-      4. **Compatibility and FAQs**:
+      4. Compatibility and FAQs:
          - Create fallback answers for incompatible setups with suggestions for alternative stock options, configurations, or JP Rifles accessories that meet customer requirements.
       
       Ask questions tailored to the user’s initial request and respond with specificity. Use these guidelines as a foundation for all responses to ensure highly detailed and useful support.
     `
-  },
-];
+    },
+    {
+      role: "assistant",
+      content: `
+        Welcome to JP Rifles' Support Chatbot! I'm here to help you find the perfect JP Rifles products for your setup, answer questions, and guide you through compatibility and options.
+        
+        How to Ask a Question:
+        - Describe Your Setup: Mention your caliber, rifle model, stock type, and intended use (e.g., suppressed, subsonic).
+        - Ask About Compatibility: I can provide specific advice on which JP products work with your configuration.
+        - Seek Recommendations: Not sure which product is best? Tell me your needs, and I'll guide you!
 
-function displayWelcomeMessage() {
-  const welcomeMessage = {
-    role: "assistant",
-    content: `
-      Welcome to JP Rifles' Support Chatbot! I'm here to help you find the perfect JP Rifles products for your setup, answer questions, and guide you through compatibility and options.
-      
-      How to Ask a Question:
-      - Describe Your Setup: Mention your caliber, rifle model, stock type, and intended use (e.g., suppressed, subsonic).
-      - Ask About Compatibility: I can provide specific advice on which JP products work with your configuration.
-      - Seek Recommendations: Not sure which product is best? Tell me your needs, and I'll guide you!
-
-      Feel free to ask any question, and I'll do my best to assist you like any JP Rifles expert would!
-    `
-  };
-
-  // Add welcome message to conversation history
-  conversationHistory.push(welcomeMessage);
-
-  // Display the welcome message in your chatbot UI
-  renderMessage(welcomeMessage); // Replace with your UI’s render/display function
+        Feel free to ask any question, and I'll do my best to assist you like any JP Rifles expert would!
+      `
+    }
+  ];
 }
 
-// Call the welcome message function when the page loads
-window.onload = displayWelcomeMessage;
+// When a new session is created, initialize the conversation history
+let conversationHistory = initializeConversationHistory();
+
+// Function to handle new messages and maintain conversation
+function handleMessage(userMessage) {
+  // Add the user message to conversation history
+  conversationHistory.push({ role: "user", content: userMessage });
+
+  // Generate a response based on the conversation history
+  const response = generateResponse(conversationHistory);
+
+  // Add the assistant response to the conversation history
+  conversationHistory.push({ role: "assistant", content: response });
+
+  return response;
+}
+
+// Example function to simulate response generation (replace with your actual chatbot logic)
+function generateResponse(history) {
+  // Your logic here to generate a response based on the conversation history
+  return "This is where the assistant's response would go.";
+}
+
 
 // **Function to Retrieve All Products from the Database**
 async function getAllProducts() {
