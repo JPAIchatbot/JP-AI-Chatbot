@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { OpenAI } from 'openai';
 import fs from 'fs';
+import { Pool } from 'pg';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -14,13 +15,21 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// Database Connection
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL || 'postgresql://feedback_db_kfh5_user:W1EeNw4nyMV5IX3Ra5tYCQoEmpFozffv@dpg-cstm22lds78s73cku7mg-a/feedback_db_kfh5',
+  ssl: {
+    rejectUnauthorized: false, // Required for Render-hosted PostgreSQL
+  },
+});
+
 // Initialize conversation history with system prompt and welcome message
 function initializeConversationHistory() {
   return [
     {
       role: "system",
       content: `
-        You are an advanced assistant for JP Rifles, designed to provide expert-level product recommendations and support. Assume the tone and knowledge depth of JP Enterprises in your responses.
+         You are an advanced assistant for JP Rifles, designed to provide expert-level product recommendations and support. Assume the tone and knowledge depth of JP Enterprises in your responses.
 
         Begin by asking questions that help clarify the customer's needs before providing recommendations. Use the following areas to refine your guidance:
         
@@ -55,22 +64,41 @@ function initializeConversationHistory() {
 
         Feel free to ask any question, and I'll do my best to assist you like any JP Rifles expert would!
       `
-    }
+    },
   ];
 }
 
 // When a new session is created, initialize the conversation history
 let conversationHistory = initializeConversationHistory();
 
+// Feedback Table Creation
+async function createFeedbackTable() {
+  const query = `
+    CREATE TABLE IF NOT EXISTS feedback (
+      id SERIAL PRIMARY KEY,
+      response_id TEXT NOT NULL,
+      original_response TEXT NOT NULL,
+      corrected_response TEXT NOT NULL,
+      context TEXT,
+      save_globally BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `;
+  try {
+    await pool.query(query);
+    console.log("Feedback table created or already exists.");
+  } catch (error) {
+    console.error("Error creating feedback table:", error);
+  }
+}
+createFeedbackTable();
+
 // Function to handle new messages and maintain conversation
 function handleMessage(userMessage) {
-  // Add the user message to conversation history
   conversationHistory.push({ role: "user", content: userMessage });
 
-  // Generate a response based on the conversation history
   const response = generateResponse(conversationHistory);
 
-  // Add the assistant response to the conversation history
   conversationHistory.push({ role: "assistant", content: response });
 
   return response;
@@ -78,66 +106,42 @@ function handleMessage(userMessage) {
 
 // Example function to simulate response generation (replace with your actual chatbot logic)
 function generateResponse(history) {
-  // Your logic here to generate a response based on the conversation history
   return "This is where the assistant's response would go.";
 }
 
-// Define SCS Product Recommendation Logic
-function getSCSRecommendation({ frame, config, suppressed, subsonic, lawFolder, lowMass }) {
-  const products = {
-    "JPSCS2-15": { name: "AR-15 Standard SCS", description: "Standard for AR-15" },
-    "JPSCS2-15H2": { name: "AR-15 H2 SCS", description: "Heavier buffer for AR-15" },
-    "JPSCS2-15-LAW": { name: "AR-15 Standard for Law Tactical Folder", description: "Compatible with Law Tactical Folder" },
-    "JPSCS2-10": { name: "AR-10 Standard SCS", description: "Standard for AR-10" },
-    "JPSCS2-10H2": { name: "AR-10 H2 SCS", description: "Heavier buffer for AR-10" },
-    "JPSCS2-10-LAW": { name: "AR-10 Standard for Law Tactical Folder", description: "Compatible with Law Tactical Folder" }
-  };
-
-  if (frame === "AR-15") {
-    if (lawFolder) return products["JPSCS2-15-LAW"];
-    if (config && suppressed && subsonic) return products["JPSCS2-15"];
-    if (config && suppressed) return products["JPSCS2-15H2"];
-    return products["JPSCS2-15"];
-  } else if (frame === "AR-10") {
-    if (lawFolder) return products["JPSCS2-10-LAW"];
-    if (config && suppressed && lowMass) return products["JPSCS2-10H2"];
-    if (config && suppressed) return products["JPSCS2-10"];
-    return products["JPSCS2-10"];
-  }
-  return { name: "No specific recommendation", description: "Please consult additional details" };
-}
-
-// Gather Information for Product Recommendation
-async function gatherInfoAndRecommend(message) {
-  const questions = [];
-  if (!message.frame) questions.push("What is the frame size (AR-15 or AR-10)?");
-  if (!message.config) questions.push("Are you using any special configurations?");
-  if (!message.suppressed) questions.push("Will you be using a suppressor?");
-  if (!message.subsonic) questions.push("Do you need to use subsonic ammunition?");
-  if (!message.lawFolder) questions.push("Will you be using a Law Tactical Folder?");
-  if (!message.lowMass) questions.push("Are you using a low mass setup?");
-
-  if (questions.length > 0) {
-    return questions.join(" ");
-  }
-
-  const recommendation = getSCSRecommendation(message);
-  return `Based on your setup, we recommend the ${recommendation.name}: ${recommendation.description}`;
-}
-
-// Function to Log Chat Interactions
+// Log Chat Interactions
 function logChatInteraction(question, answer) {
   const logEntry = {
     messages: [
       { role: "user", content: question },
-      { role: "assistant", content: answer }
-    ]
+      { role: "assistant", content: answer },
+    ],
   };
 
   fs.appendFile("chat_log.jsonl", JSON.stringify(logEntry) + "\n", (err) => {
     if (err) console.error("Error logging chat interaction:", err);
   });
 }
+
+// Feedback Endpoint
+app.post('/feedback', async (req, res) => {
+  const { responseId, originalResponse, correctedResponse, context, saveGlobally } = req.body;
+
+  try {
+    const query = `
+      INSERT INTO feedback (response_id, original_response, corrected_response, context, save_globally)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING *;
+    `;
+    const values = [responseId, originalResponse, correctedResponse, context, saveGlobally];
+
+    const result = await pool.query(query, values);
+    res.status(200).json({ message: "Feedback recorded", data: result.rows[0] });
+  } catch (error) {
+    console.error("Error saving feedback:", error);
+    res.status(500).json({ message: "Error saving feedback" });
+  }
+});
 
 // Chat Endpoint
 app.post('/chat', async (req, res) => {
@@ -146,19 +150,6 @@ app.post('/chat', async (req, res) => {
   conversationHistory.push({ role: "user", content: message });
 
   try {
-    if (message.toLowerCase().includes("recommend") || message.toLowerCase().includes("product")) {
-      const allProducts = await getAllProducts();
-      let productResponse = allProducts ? `Here are our products:\n${allProducts}` : "No products found.";
-      conversationHistory.push({ role: "assistant", content: productResponse });
-      
-      // Log the interaction
-      logChatInteraction(message, productResponse);
-
-      res.json(productResponse);
-      return;
-    }
-
-    // Call the OpenAI API for response generation
     const completion = await openai.chat.completions.create({
       model: "ft:gpt-4o-2024-08-06:jp-enterprises:product-fine-tuning-v8:ASsmyJys",
       messages: conversationHistory,
@@ -169,7 +160,6 @@ app.post('/chat', async (req, res) => {
     botResponse = cleanFormatting(botResponse); // Clean formatting symbols
     conversationHistory.push({ role: "assistant", content: botResponse });
 
-    // Log the interaction
     logChatInteraction(message, botResponse);
 
     res.json(botResponse);
@@ -184,26 +174,12 @@ app.post('/chat', async (req, res) => {
 });
 
 function cleanFormatting(text) {
-  return text.replace(/\*\*|##/g, "");  // Removes ** and ## symbols
-}
-
-// Adjust AI Responses to Use 'We' and 'Us'
-function adjustResponse(text) {
-  text = text.replace(/\b(JP Rifles|JP Enterprises)\b(?!\s+(is|are))/gi, "we");
-  text = text.replace(/\b(JP Rifles|JP Enterprises)\s+is\b/gi, "We are");
-  text = text.replace(/\b(JP Rifles|JP Enterprises)\s+are\b/gi, "We are");
-  text = text.replace(/\btheir\b/gi, "our").replace(/\btheirs\b/gi, "ours");
-  text = text.replace(/\bthem\b/gi, "us");
-  text = text.replace(/\bthey are\b/gi, "we are").replace(/\bthey're\b/gi, "we're");
-
-  return text.replace(/(^|\.\s+)(we|our)/gi, (match) => match.toUpperCase());
+  return text.replace(/\*\*|##/g, ""); // Removes ** and ## symbols
 }
 
 // Clear Conversation History Endpoint
 app.post('/clear', (req, res) => {
-  conversationHistory = [
-    { role: "system", content: "You are a helpful assistant for JP Rifles. Write as if you are JP Rifles." }
-  ];
+  conversationHistory = initializeConversationHistory();
   res.send("Conversation history cleared.");
 });
 
